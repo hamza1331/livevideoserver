@@ -1,0 +1,7 @@
+{
+  "API": {
+    "PORT": 3333,
+    "NAME": "localhost"
+  },
+  "DB_STRING": "mongodb://demo:demo123@ds125372.mlab.com:25372/demo_dreamerz"
+}
