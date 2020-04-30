@@ -11,6 +11,7 @@ const utils = require('./app/utils');
 const process = require('process')
 const port = process.env.PORT || 5000
 const Group = require('./models/Groups')
+const Chats = require('./models/Chats')
 const shopmodelsPath = `${__dirname}/app/models/`;
 fs.readdirSync(shopmodelsPath).forEach(file => {
   if (~file.indexOf('.js')) {
@@ -21,7 +22,6 @@ fs.readdirSync(shopmodelsPath).forEach(file => {
 const server = http.createServer(app);
 const io = require('socket.io').listen(server);
 require('./app/controllers/socketIO')(io);
-
 mongoose.Promise = global.Promise;
 global.appRoot = path.resolve(__dirname);
 
@@ -83,7 +83,6 @@ const nodeMediaServerConfig = {
 
 var nms = new NodeMediaServer(nodeMediaServerConfig);
 nms.run();
-
 nms.on('getFilePath', (streamPath, oupath, mp4Filename) => {
   console.log('---------------- get file path ---------------');
   console.log(streamPath);
@@ -176,9 +175,30 @@ app.get('/api/getGroup:firebaseUID',(req,res)=>{
   Group.findOne({firebaseUID:req.params.firebaseUID},(err,doc)=>{
     if(err)return res.json({message:"Failed",err})
     else{
+      console.log(doc)
       return res.json({message:"Success",doc})
     }
   })
+})
+app.post('/api/getGroups',(req,res)=>{
+  if(req.body.groups){
+    let data = req.body
+    if(data.groups.length>0){
+      let {groups} = req.body
+      Group.find({firebaseUID:{$in:groups}},(err,docs)=>{
+        if(err)return res.json({message:"Failed",err})
+        else{
+          return res.json({message:"Success",docs})
+        }
+      })
+    }
+    else{
+    return res.json({message:"Failed",err:"Group IDs must not be empty"})
+    }
+  }
+  else{
+    return res.json({message:"Failed",err:"Group IDs are required"})
+  }
 })
 //add participants
 app.put('/api/addParticipant',(req,res)=>{
@@ -208,4 +228,41 @@ app.put('/api/removeParticipant',(req,res)=>{
   }else{
     res.json({message:"Failed",error:"Valid FirebaseUID is required"})
   }
+})
+
+//Chats
+app.post('/api/getMessages', (req, res) => {         //get messages of a chat from listing
+  // Chats.findOne({ sellerUserID: req.body.sellerUserID, firebaseUID: req.body.firebaseUID }, (err, docs) => {
+  //     if (err) res.json(err)
+  //     console.log(docs)
+  //     if (docs !== null) {
+  //         res.json({
+  //             message: "Success",
+  //             data: docs
+  //         })
+  //     }
+  //     else {
+  //         let data = req.body
+  //         Chats.create(data, (err, doc) => {
+  //             if (err) res.json(err)
+  //             if (doc !== null) {
+  //                 Activity.findOneAndUpdate({ firebaseUID: req.body.firebaseUID }, { $push: { Conversations: doc._id } }, { new: true }, (err, res) => console.log('Buyer DOne...', res))
+  //                 Activity.findOneAndUpdate({ firebaseUID: req.body.sellerUserID }, { $push: { Conversations: doc._id } }, { new: true }, (err, res) => console.log('Seller DOne...', res))
+  //                 res.json({
+  //                     message: "Chat created",
+  //                     data: doc
+  //                 })
+
+  //             }
+
+  //         })
+  //     }
+  // })
+  let data = req.body
+  Chats.findOne({chatId:data.chatId},(err,doc)=>{
+    if(err)return res.json({message:"Failed",err})
+    else{
+      return res.json({message:"Success",doc})
+    }
+  })
 })

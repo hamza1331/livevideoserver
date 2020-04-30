@@ -5,6 +5,7 @@ const { exec } = require('child_process');
 const Room = mongoose.model('Room');
 const Utils = require('../utils');
 const LiveStatus = require('../liveStatus');
+const Chats = require('../../models/Chats')
 const roomList = {};
 
 module.exports = io => {
@@ -204,6 +205,53 @@ module.exports = io => {
         productImageUrl
       });
     });
+    socket.on('input', (response) => {
+
+      let data = JSON.parse(response)
+      let { chatId } = data
+      let message = {}
+      if (data.hasOwnProperty('text')) {
+          message = {
+              createdAt: data.createdAt,
+              text: data.text,
+              senderAvatarLink: data.senderAvatarLink,
+              senderID: data.senderID
+          }
+          console.log(message)
+      }
+      else if (data.hasOwnProperty('image')) {
+          message = {
+              createdAt: data.createdAt,
+              image: data.image,
+              senderAvatarLink: data.senderAvatarLink,
+              senderID: data.senderID
+          }
+      }
+      let firebaseUID = data.senderID
+      // Check for name and message
+      if (firebaseUID == '' || message == undefined) {
+          // Send error status
+          return
+      } else {
+          // Insert message
+          Chats.findOneAndUpdate({chatId:chatId}, { $push: { messages: message } }, { new: true }, (err, docs) => {
+              if (err) console.log('Error: ' + err)
+              let newmsg = docs.messages[docs.messages.length - 1]
+              newmsg.fName = docs.fName
+              let emitter = socket.broadcast
+              emitter.emit('Sent', JSON.stringify(newmsg))
+          })
+          // Chats.insert({firebaseUID: firebaseUID, message: message}, function(){
+          //     client.emit('output', [data]);
+
+          //     // Send status object
+          //     sendStatus({
+          //         message: 'Message sent',
+          //         clear: true
+          //     });
+          // });
+      }
+  });
 
     socket.on('replay', (data, callback) => {
       console.log('replay');
