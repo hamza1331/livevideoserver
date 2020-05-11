@@ -11,8 +11,17 @@ const utils = require('./app/utils');
 const process = require('process')
 const port = process.env.PORT || 5000
 const Group = require('./models/Groups')
+const cors = require('cors')
 const Chats = require('./models/Chats')
 const shopmodelsPath = `${__dirname}/app/models/`;
+var admin = require("firebase-admin");
+
+var serviceAccount = require('./onlinevideolectures-firebase-adminsdk-nehr6-99e8909133.json');
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  databaseURL: "https://onlinevideolectures.firebaseio.com"
+});
 fs.readdirSync(shopmodelsPath).forEach(file => {
   if (~file.indexOf('.js')) {
     require(`${shopmodelsPath}/${file}`);
@@ -36,7 +45,7 @@ mongoose.connect(
     }
   }
 );
-
+app.use(cors())
 app.use(
   bodyParser.urlencoded({
     extended: true
@@ -47,13 +56,13 @@ app.set('socketio', io);
 app.set('server', server);
 app.use(express.static(`${__dirname}/public`));
 
-server.listen(port, err => {
-  if (err) {
-    console.log(err);
-  } else {
-    console.log(`listening on port ${port}`);
-  }
-});
+// server.listen(port, err => {
+//   if (err) {
+//     console.log(err);
+//   } else {
+//     console.log(`listening on port ${port}`);
+//   }
+// });
 
 const nodeMediaServerConfig = {
   rtmp: {
@@ -158,17 +167,40 @@ nms.on('donePlay', (id, StreamPath, args) => {
 
 //create group
 app.post('/api/addGroup',(req,res)=>{
-  if(req.body.firebaseUID){
-    let data = req.body
-    Group.create(data,(err,doc)=>{
-      if(err)return res.json({message:"Failed",err})
-      else{
-        return res.json({message:"Success",doc})
-      }
+  let auth = admin.auth()
+  auth.createUser({
+    displayName:req.body.name,
+    email:req.body.email,
+    password:req.body.password
+  }).then((response)=>{
+    let uid = response.uid
+    let user = {
+      email:response.email,
+      password:req.body.password,
+      displayName:req.body.name,
+      userType:1,
+      firebaseUID:uid
+    }
+    let database = admin.database().ref('users').child(uid)
+    database.set(user).then((result)=>{
+      Chats.create({firebaseUID:uid},(err,doc)=>{
+        if(err)return res.json({message:"Failed",err})
+
+        let group = {
+          groupName:req.body.groupName,
+          firebaseUID:response.uid,
+          adminName:req.body.name,
+          chatId:doc._id
+         }
+         Group.create(group,(error,group)=>{
+           if(error)return res.json({message:"Failed",error})
+           else{
+             return res.json({message:"Success",doc:group})
+           }
+         })
+      })
     })
-  }else{
-    res.json({message:"Failed",error:"Valid FirebaseUID is required"})
-  }
+  }).catch(err=>res.json({message:'Failed',err}))
 })
 //get group
 app.get('/api/getGroup:firebaseUID',(req,res)=>{
@@ -232,32 +264,6 @@ app.put('/api/removeParticipant',(req,res)=>{
 
 //Chats
 app.post('/api/getMessages', (req, res) => {         //get messages of a chat from listing
-  // Chats.findOne({ sellerUserID: req.body.sellerUserID, firebaseUID: req.body.firebaseUID }, (err, docs) => {
-  //     if (err) res.json(err)
-  //     console.log(docs)
-  //     if (docs !== null) {
-  //         res.json({
-  //             message: "Success",
-  //             data: docs
-  //         })
-  //     }
-  //     else {
-  //         let data = req.body
-  //         Chats.create(data, (err, doc) => {
-  //             if (err) res.json(err)
-  //             if (doc !== null) {
-  //                 Activity.findOneAndUpdate({ firebaseUID: req.body.firebaseUID }, { $push: { Conversations: doc._id } }, { new: true }, (err, res) => console.log('Buyer DOne...', res))
-  //                 Activity.findOneAndUpdate({ firebaseUID: req.body.sellerUserID }, { $push: { Conversations: doc._id } }, { new: true }, (err, res) => console.log('Seller DOne...', res))
-  //                 res.json({
-  //                     message: "Chat created",
-  //                     data: doc
-  //                 })
-
-  //             }
-
-  //         })
-  //     }
-  // })
   let data = req.body
   Chats.findOne({chatId:data.chatId},(err,doc)=>{
     if(err)return res.json({message:"Failed",err})
@@ -266,3 +272,94 @@ app.post('/api/getMessages', (req, res) => {         //get messages of a chat fr
     }
   })
 })
+
+//Get all users 
+app.get('/api/getAllUsers',(req,res)=>{
+  console.log('requesdih')
+  let  users = []
+  let database = admin.database().ref('users/')
+  database.once('value',(response)=>{
+    response.forEach((resp)=>{
+        let user = resp.val()
+        users.push(user)
+    })
+     res.json({message:"Success",doc:users})
+  })
+})
+
+//Get all groups
+app.post('/api/getAllGroups',(req,res)=>{
+  Group.find({},(err,docs)=>{
+    if(err)return res.json({message:"Failed",err})
+    else{
+      return res.json({message:"Success",doc:docs})
+    }
+  })
+})
+
+//Delete a group
+app.delete('/api/deleteGroup',(req,res)=>{
+  if(req.body.firebaseUID){
+    let uid = req.body.firebaseUID
+    let auth = admin.auth()
+    auth.deleteUser(uid).then((response)=>{
+      let database = admin.database().ref('users').child(uid)
+      database.remove().then((result)=>{
+          Group.findOneAndDelete({firebaseUID:uid},(err,doc)=>{
+            if(err)return res.json({message:"Failed",err})
+            else{
+              return res.json({message:"Success",doc})
+            }
+          })
+      })
+    })
+  }else{
+    return res.json({message:"Failed",err:"Group can not be null"})
+  }
+})
+
+//Delete User
+
+app.delete('/api/deleteUser',(req,res)=>{
+  if(req.body.uid){
+    let uid = req.body.uid
+    let auth = admin.auth()
+    auth.deleteUser(uid).then(()=>{
+      let database = admin.database().ref('users').child(uid)
+      database.remove(()=>{
+        return res.json({message:"Success"})
+      }).catch(error=>res.json({message:"Failed",error}))
+    }).catch(err=>res.json({message:"Failed",err}))
+  }else{
+    return res.json({message:"Failed",err:"User can not be null"})
+  }
+})
+
+//Add User
+app.post('/api/addUser',(req,res)=>{
+  if(req.body.name){
+    let auth = admin.auth()
+    auth.createUser({
+      email:req.body.email,
+      password:req.body.password,
+      displayName:req.body.name
+    }).then(response=>{
+      let uid = response.uid
+      let user = {
+        email:response.email,
+        password:req.body.password,
+        displayName:req.body.name,
+        userType:0,
+        firebaseUID:uid
+      }
+      let database = admin.database().ref('users').child(uid)
+      database.set(user).then((result)=>{
+        return res.json({message:"Success",doc:user})
+      })
+    }).catch(err=>res.json({message:'Failed',err}))
+  }else{
+    return res.json({message:"Failed",err:"User can not be null"})
+  }
+})
+
+app.listen(port,()=>console.log('Listening on port '+port))
