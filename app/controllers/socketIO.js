@@ -48,7 +48,6 @@ module.exports = io => {
 
   io.on('connection', socket => {
     console.log('connection');
-
     socket.on('disconnect', () => {
       console.log('Disconnect');
       const { roomName, userId, liveStatus } = socket;
@@ -206,8 +205,7 @@ module.exports = io => {
       });
     });
     socket.on('input', (response) => {
-
-      let data = JSON.parse(response)
+      let data =response
       let { chatId } = data
       let message = {}
       if (data.hasOwnProperty('text')) {
@@ -238,6 +236,7 @@ module.exports = io => {
               if (err) console.log('Error: ' + err)
               let newmsg = docs.messages[docs.messages.length - 1]
               newmsg.fName = docs.fName
+              console.log('message=>',newmsg)
               let emitter = socket.broadcast
               emitter.emit('Sent', JSON.stringify(newmsg))
           })
