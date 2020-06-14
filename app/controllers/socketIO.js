@@ -205,8 +205,9 @@ module.exports = io => {
       });
     });
     socket.on('input', (response) => {
-      let data =response
+      let data =JSON.parse(response)
       let { chatId } = data
+      console.log('data=>',data)
       let message = {}
       if (data.hasOwnProperty('text')) {
           message = {
