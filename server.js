@@ -183,7 +183,7 @@ app.post('/api/addGroup',(req,res)=>{
     }
     let database = admin.database().ref('users').child(uid)
     database.set(user).then((result)=>{
-      Chats.create({firebaseUID:uid},(err,doc)=>{
+      Chats.create({firebaseUID:uid,chatId:uid},(err,doc)=>{
         if(err)return res.json({message:"Failed",err})
 
         let group = {
