@@ -46,6 +46,9 @@ const ChatsSchema = new mongoose.Schema({
     buyerFname:{         //seller
         type:String
     },
+    chatId:{
+    type:String
+    }
 });
 
 module.exports = mongoose.model('Chats', ChatsSchema);
