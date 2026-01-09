@@ -2,13 +2,6 @@
 
 Live stream using RTMP for React Native App Live Stream
 
-Client : https://github.com/sieuhuflit/react-native-live-stream-rtmp-example
-
-## Demo
-
-| Streamer                                                                                                             | Viewer                                                                                                             |
-| -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| <img src="https://raw.githubusercontent.com/sieuhuflit/react-native-live-stream-rtmp-example/master/streamer.gif" /> | <img src="https://raw.githubusercontent.com/sieuhuflit/react-native-live-stream-rtmp-example/master/viewer.gif" /> |
 
 ## Teachnology using
 
